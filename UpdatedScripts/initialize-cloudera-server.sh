@@ -140,6 +140,7 @@ log "END: master node deployments"
 rpm -ivh http://dl.fedoraproject.org/pub/epel/7/x86_64/Packages/e/epel-release-7-11.noarch.rpm >> "${LOG_FILE}" 2>&1
 yum -y install python-pip >> "${LOG_FILE}" 2>&1
 pip install cm_api >> "${LOG_FILE}" 2>&1
+pip install paramiko >> "${LOG_FILE}" 2>&1
 
 # trap file to indicate done
 log "creating file to indicate finished"
