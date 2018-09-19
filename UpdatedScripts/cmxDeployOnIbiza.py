@@ -74,12 +74,12 @@ def init_cluster():
     :return:
     """
     #using default username/password to login first, create new admin user base on provided value, then delete admin
-    #api = ApiResource(server_host=cmx.cm_server, username="admin", password="admin",version=18)
-    api = ApiResource(server_host=cmx.cm_server,username="admin",password="admin",version=18)
-    print "API Object",api
-    api.create_user(cmx.username, cmx.password, ['ROLE_ADMIN'])
-    api = ApiResource(server_host=cmx.cm_server, username=cmx.username, password=cmx.password,version=18)
-    api.delete_user("admin")
+    api = ApiResource(server_host=cmx.cm_server, username="admin", password="admin",version=18)
+    #api = ApiResource(server_host=cmx.cm_server,username="admin",password="admin",version=18)
+    #print "API Object",api
+    #api.create_user(cmx.username, cmx.password, ['ROLE_ADMIN'])
+    #api = ApiResource(server_host=cmx.cm_server, username=cmx.username, password=cmx.password,version=18)
+    #api.delete_user("admin")
 
     # Update Cloudera Manager configuration
     cm = api.get_cloudera_manager()
@@ -92,8 +92,8 @@ def init_cluster():
     # print cm_config
     # repo_config = cm_config['REMOTE_PARCEL_REPO_URLS']
     # print repo_config
-    cm.update_config({"REMOTE_PARCEL_REPO_URLS": "http://archive.cloudera.com/cdh5/parcels/5.13.0", "PHONE_HOME": False, "PARCEL_DISTRIBUTE_RATE_LIMIT_KBS_PER_SECOND": "1024000"})
-    #cm.update_config({"REMOTE_PARCEL_REPO_URLS": "http://archive.cloudera.com/cdh5/parcels/5.13.0"})
+    cm.update_config({"REMOTE_PARCEL_REPO_URLS": "http://archive.cloudera.com/cdh5/parcels/5.13.3", "PHONE_HOME": False, "PARCEL_DISTRIBUTE_RATE_LIMIT_KBS_PER_SECOND": "1024000"})
+    #cm.update_config({"REMOTE_PARCEL_REPO_URLS": "http://archive.cloudera.com/cdh5/parcels/5.13.3"})
     #cm.update_config({"PHONE_HOME": False, "PARCEL_DISTRIBUTE_RATE_LIMIT_KBS_PER_SECOND": "1024000"})
     #cm.update_config({"PARCEL_DISTRIBUTE_RATE_LIMIT_KBS_PER_SECOND": "1024000"})
 
@@ -262,12 +262,12 @@ def setup_zookeeper(HA):
                     print cmhost
                     print [x for x in hosts if x.id == 0 ][0]
                     print [x for x in hosts if x.id == 1 ][0]
-                    cdh.create_service_role(service, rcg.roleType, cmhost)   #--TSE
+                    #cdh.create_service_role(service, rcg.roleType, cmhost)   #--TSE
 					
                     cdh.create_service_role(service, rcg.roleType, [x for x in hosts if x.id == 0 ][0])
                     cdh.create_service_role(service, rcg.roleType, [x for x in hosts if x.id == 1 ][0])
 					
-                    #cdh.create_service_role(service, rcg.roleType, [x for x in hosts if x.id == 2 ][0])  # --TSE
+                    cdh.create_service_role(service, rcg.roleType, [x for x in hosts if x.id == 2 ][0])  # --TSE
                 #No HA, using POC setup, all service in one master node aka the cm host
                 else:
                     cdh.create_service_role(service, rcg.roleType, cmhost)
@@ -398,8 +398,10 @@ def setup_hdfs(HA):
                     cdh.create_service_role(service, role_type, host)	#--TSE 
                 
         nn_role_type = service.get_roles_by_type("NAMENODE")[0]
+        print "nn_role_type",nn_role_type.name
         commands = service.format_hdfs(nn_role_type.name)
         for cmd in commands:
+            print "commands",cmd.id
             check.status_for_command("Format NameNode", cmd)
 
         check.status_for_command("Starting HDFS.", service.start())
@@ -438,22 +440,21 @@ def setup_hbase():
 
         for rcg in [x for x in service.get_all_role_config_groups()]:
             if rcg.roleType == "MASTER":
-                cdh.create_service_role(service, rcg.roleType, master_host_id)
-                cdh.create_service_role(service, rcg.roleType, backup_master_host_id)
-                cdh.create_service_role(service, rcg.roleType, cmhost)
+                cdh.create_service_role(service, rcg.roleType, [host for host in hosts if host.id == 2][0])
+                #cdh.create_service_role(service, rcg.roleType, backup_master_host_id)
+                #cdh.create_service_role(service, rcg.roleType, cmhost)
 
             if rcg.roleType == "REGIONSERVER":
                 for host in management.get_hosts(include_cm_host = False):
-                    if host.hostId != master_host_id.hostId:
-                        if host.hostId != backup_master_host_id.hostId:
-                            cdh.create_service_role(service, rcg.roleType, host)
+                    if host.hostId not in TSE_nodes_master and host.hostId not in TSE_nodes_edge:
+                        cdh.create_service_role(service, "REGIONSERVER", host)
 
-        #for role_type in ['HBASETHRIFTSERVER', 'HBASERESTSERVER']:
-        #    cdh.create_service_role(service, role_type, random.choice(hosts))
+        for role_type in ['HBASETHRIFTSERVER']:  # , 'HBASERESTSERVER']:
+            cdh.create_service_role(service, role_type, [host for host in hosts if host.id == 2][0])
 
-        for role_type in ['GATEWAY']:
-            for host in management.get_hosts(include_cm_host=(role_type == 'GATEWAY')):
-                cdh.create_service_role(service, role_type, host)
+        #for role_type in ['GATEWAY']:
+           # for host in management.get_hosts(include_cm_host=(role_type == 'GATEWAY')):
+               # cdh.create_service_role(service, role_type, host)
 
         check.status_for_command("Creating HBase root directory", service.create_hbase_root())
         check.status_for_command("Starting HBase Service", service.start())
@@ -564,13 +565,16 @@ def setup_spark_on_yarn():
 
         '''for host in management.get_hosts(include_cm_host=True):  
             cdh.create_service_role(service, "GATEWAY", host)'''   #TSE
+		#edge_hostid1=[host for host in hosts if host.id == 3][0]  #--TSE
+		#edge_hostid2=[host for host in hosts if host.id == 4][0]  #--TSE
+		
+		#TSE_nodes_edge=[edge_hostid1,edge_hostid2] #--TSE
         for edgenode in TSE_nodes_edge:
             cdh.create_service_role(service, "GATEWAY", edgenode)
 			
 
         # Example of deploy_client_config. Recommended to Deploy Cluster wide client config.
         # cdh.deploy_client_config_for(service)
-
         check.status_for_command("Execute command CreateSparkUserDirCommand on service Spark",
                                  service._cmd('CreateSparkUserDirCommand'))
         check.status_for_command("Execute command CreateSparkHistoryDirCommand on service Spark",
@@ -652,19 +656,18 @@ def setup_yarn(HA):
                 rcg.update_config({"mapred_submit_replication": "3"})
                 '''for host in management.get_hosts(include_cm_host=True):
                     cdh.create_service_role(service, rcg.roleType, host)''' #TSE
-                for node in TSE_nodes_edge:
+		edge_hostid1=[host for host in hosts if host.id == 3][0]
+                TSE_nodes_edges=[edge_hostid1]
+                for node in TSE_nodes_edges:
                     cdh.create_service_role(service, rcg.roleType, node)
 
-
-        #print rm_host_id.hostId
-        #print srm_host_id.hostId
         for role_type in ['NODEMANAGER']:
                 for host in management.get_hosts(include_cm_host = False):
                         #print host.hostId
                     '''    if host.hostId != rm_host_id.hostId:
                             if host.hostId != srm_host_id.hostId:
                                 cdh.create_service_role(service, role_type, host)''' #TSE
-                    if host.hostId not in TSE_nodes_master and  host.hostId not in TSE_nodes_edge:
+                    if host.hostId not in TSE_nodes_master and host.hostId not in TSE_nodes_edge:
                         cdh.create_service_role(service, role_type, host)
 
 
@@ -756,9 +759,9 @@ def setup_hive():
         service_config = {"hive_metastore_database_host": socket.getfqdn(cmx.cm_server),
                           "hive_metastore_database_user": "hive",
                           "hive_metastore_database_name": "metastore",
-                          "hive_metastore_database_password": cmx.hive_password,
-                          "hive_metastore_database_port": "5432",
-                          "hive_metastore_database_type": "postgresql"}
+                          "hive_metastore_database_password": "Mysql@123",  #cmx.hive_password,
+                          "hive_metastore_database_port": "3306",
+                          "hive_metastore_database_type": "mysql"}
         service_config.update(cdh.dependencies_for(service))
         service.update_config(service_config)
 
@@ -773,11 +776,11 @@ def setup_hive():
         #install to CM node, mingrui
         cmhost= management.get_cmhost()
         for role_type in ['HIVEMETASTORE', 'HIVESERVER2']:
-            cdh.create_service_role(service, role_type, [host for host in hosts if host.id == 1][0])  #TSE--2
-
-        ''' for host in management.get_hosts(include_cm_host=True):
-            cdh.create_service_role(service, "GATEWAY", host)'''  #TSE
-        for edgenode in TSE_nodes_edge:
+            cdh.create_service_role(service, role_type, [host for host in hosts if host.id == 0][0])  #TSE--2
+	edge_hostid1=[host for host in hosts if host.id == 3][0]  #--TSE
+	#edge_hostid2=[host for host in hosts if host.id == 4][0]  #--TSE
+        TSE_nodes_edges=[edge_hostid1] #--TSE
+        for edgenode in TSE_nodes_edges:
             cdh.create_service_role(service, "GATEWAY", edgenode)
 			
 
@@ -845,6 +848,10 @@ def setup_sqoop_client():
 
         '''for host in management.get_hosts(include_cm_host=True):
             cdh.create_service_role(service, "GATEWAY", host)'''  #TSE
+		#edge_hostid1=[host for host in hosts if host.id == 3][0]  #--TSE
+		#edge_hostid2=[host for host in hosts if host.id == 4][0]  #--TSE
+		
+		#TSE_nodes_edges=[edge_hostid1,edge_hostid2] #--TSE
         for host in TSE_nodes_edge:
             cdh.create_service_role(service, "GATEWAY", host)
 		
@@ -903,6 +910,10 @@ def setup_kafka_client():  #TSE
 
         '''for host in management.get_hosts(include_cm_host=True):
             cdh.create_service_role(service, "GATEWAY", host)'''  #TSE
+		#edge_hostid1=[host for host in hosts if host.id == 3][0]  #--TSE
+		#edge_hostid2=[host for host in hosts if host.id == 4][0]  #--TSE
+		
+		#TSE_nodes_edges=[edge_hostid1,edge_hostid2] #--TSE
         for host in TSE_nodes_edge:
             cdh.create_service_role(service, "GATEWAY", host)
 		
@@ -959,21 +970,14 @@ def setup_impala(HA):
 
         cmhost= management.get_cmhost()
         for role_type in ['CATALOGSERVER', 'STATESTORE']:
-            cdh.create_service_role(service, role_type, cmhost)
+            cdh.create_service_role(service, role_type, [host for host in hosts if host.id == 1][0])  #15Sep#
 
         if HA:
             # Install ImpalaD
-            head_node_1_host_id = [host for host in hosts if host.id == 0][0]
-            head_node_2_host_id = [host for host in hosts if host.id == 1][0]
-            #head_node_3_host_id = [host for host in hosts if host.id == 2][0]
-
             for host in hosts:
                 # impalad should not be on hn-1 and hn-2
-                '''if (host.id!=head_node_1_host_id.id and host.id!=head_node_2_host_id.id,and host.id!=head_node_3_host_id.id): #TSE
-                    cdh.create_service_role(service, "IMPALAD", host)'''
-                if host.id not in TSE_nodes_master and host.id not in TSE_nodes_edge:
-                    cdh.create_service_role(service, "IMPALAD", host)
-					
+	        if host.hostId not in TSE_nodes_master and host.hostId not in TSE_nodes_edge:
+                        cdh.create_service_role(service, "IMPALAD", host)				
         else:
             # All master services on CM host, install impalad on datanode host
             for host in hosts:
@@ -1015,7 +1019,7 @@ def setup_oozie():
                 rcg.update_config({"oozie_log_dir": LOG_DIR+"/oozie",
                                    "oozie_data_dir": LOG_DIR+"/lib/oozie/data"})
                 #cdh.create_service_role(service, rcg.roleType, cmhost) #TSE
-                cdh.create_service_role(service, rcg.roleType,[host for host in hosts if host.id == 1][0])  #TSE--2
+                cdh.create_service_role(service, rcg.roleType,[host for host in hosts if host.id == 3][0])  #TSE--2
 				
 
         check.status_for_command("Creating Oozie database", service.create_oozie_db())
@@ -1053,13 +1057,17 @@ def setup_hue():
                 cdh.create_service_role(service, "HUE_SERVER", cmhost)
             if rcg.roleType == "KT_RENEWER":
                 rcg.update_config({"kt_renewer_log_dir": LOG_DIR+"/hue"})''' #TSE
-
+	edge_hostid1=[host for host in hosts if host.id == 3][0]  #--TSE
+		#edge_hostid2=[host for host in hosts if host.id == 4][0]  #--TSE
+		
+	TSE_nodes_edges=[edge_hostid1] #--TSE
+				
         for rcg in [x for x in service.get_all_role_config_groups()]:
             if rcg.roleType == "HUE_SERVER":
                 rcg.update_config({"hue_server_log_dir": LOG_DIR+"/hue"})
-                for edgenode in TSE_nodes_edge:
-                    cdh.create_service_role(service, "HUE_SERVER", edgenode)
-            if rcg.roleType == "KT_RENEWER":
+        for edgenode in TSE_nodes_edges:
+            cdh.create_service_role(service, "HUE_SERVER", edgenode)
+        if rcg.roleType == "KT_RENEWER":
                 rcg.update_config({"kt_renewer_log_dir": LOG_DIR+"/hue"})
         # This service is started later on
         # check.status_for_command("Starting Hue Service", service.start())
@@ -1107,7 +1115,7 @@ def setup_hdfs_ha():
 
         if len(hdfs.get_roles_by_type("NAMENODE")) != 2:
             # QJM require 3 nodes
-            jn = random.sample([x.hostRef.hostId for x in hdfs.get_roles_by_type("DATANODE")], 3)
+            jn = random.sample([x.hostRef.hostId for x in hdfs.get_roles_by_type("DATANODE")], 2)
             # get NAMENODE and SECONDARYNAMENODE hostId
             nn_host_id = hdfs.get_roles_by_type("NAMENODE")[0].hostRef.hostId
             sndnn_host_id = hdfs.get_roles_by_type("SECONDARYNAMENODE")[0].hostRef.hostId
@@ -1128,7 +1136,7 @@ def setup_hdfs_ha():
                                     "nameservice1", [dict(jnHostId=nn_host_id), dict(jnHostId=sndnn_host_id), dict(jnHostId=cm.hostId)],zk_service_name=zookeeper.name)'''
 									# TSE						
             cmd = hdfs.enable_nn_ha(hdfs.get_roles_by_type("NAMENODE")[0].name, standby_host_id,
-                                     "nameservice1", [dict(jnHostId=nn_host_id), dict(jnHostId=sndnn_host_id), dict(jnHostId=snn_host_id.hostId)],zk_service_name=zookeeper.name) #TSE
+                                     "nameservice1", [dict(jnHostId=nn_host_id), dict(jnHostId=sndnn_host_id), dict(jnHostId=master_host_id_3)],zk_service_name=zookeeper.name) #TSE
 									
             check.status_for_command("Enable HDFS-HA - [ http://%s:7180/cmf/command/%s/details ]" %
                                      (socket.getfqdn(cmx.cm_server), cmd.id), cmd)
@@ -1214,8 +1222,8 @@ def setup_sentry():
                           "sentry_server_database_user": "sentry",
                           "sentry_server_database_name": "sentry",
                           "sentry_server_database_password": "cloudera",
-                          "sentry_server_database_port": "5432",
-                          "sentry_server_database_type": "postgresql"}
+                          "sentry_server_database_port": "3306",
+                          "sentry_server_database_type": "mysql"}
 
         service_config.update(cdh.dependencies_for(service))
         service.update_config(service_config)
@@ -1264,8 +1272,8 @@ def setup_easy():
                       "hive_metastore_database_user": "hive",
                       "hive_metastore_database_name": "metastore",
                       "hive_metastore_database_password": cmx.hive_password,
-                      "hive_metastore_database_port": "5432",
-                      "hive_metastore_database_type": "postgresql"}
+                      "hive_metastore_database_port": "3306",
+                      "hive_metastore_database_type": "mysql"}
     service_config.update(cdh.dependencies_for(service))
     service.update_config(service_config)
     check.status_for_command("Executing first run command. This might take a while.", cluster.first_run())
@@ -1407,10 +1415,10 @@ class ManagementActions:
         # now configure each role
         for group in [x for x in self._service.get_all_role_config_groups() if x.roleType in self._role_list]:
             if group.roleType == "ACTIVITYMONITOR":
-                group.update_config({"firehose_database_host": "%s:5432" % socket.getfqdn(cmx.cm_server),
+                group.update_config({"firehose_database_host": "%s:3306" % socket.getfqdn(cmx.cm_server),
                                      "firehose_database_user": "amon",
                                      "firehose_database_password": cmx.amon_password,
-                                     "firehose_database_type": "postgresql",
+                                     "firehose_database_type": "mysql",
                                      "firehose_database_name": "amon",
                                      "mgmt_log_dir": LOG_DIR+"/cloudera-scm-firehose",
                                      "firehose_heapsize": "215964392"})
@@ -1431,18 +1439,18 @@ class ManagementActions:
             elif group.roleType == "NAVIGATORMETADATASERVER" and management.licensed():
                 group.update_config({})
             elif group.roleType == "REPORTSMANAGER" and management.licensed():
-                group.update_config({"headlamp_database_host": "%s:5432" % socket.getfqdn(cmx.cm_server),
+                group.update_config({"headlamp_database_host": "%s:3306" % socket.getfqdn(cmx.cm_server),
                                      "headlamp_database_name": "rman",
                                      "headlamp_database_password": cmx.rman_password,
-                                     "headlamp_database_type": "postgresql",
+                                     "headlamp_database_type": "mysql",
                                      "headlamp_database_user": "rman",
                                      "headlamp_scratch_dir": LOG_DIR+"/lib/cloudera-scm-headlamp",
                                      "mgmt_log_dir": LOG_DIR+"/cloudera-scm-headlamp"})
             elif group.roleType == "OOZIE":
-                group.update_config({"oozie_database_host": "%s:5432" % socket.getfqdn(cmx.cm_server),
+                group.update_config({"oozie_database_host": "%s:3306" % socket.getfqdn(cmx.cm_server),
                                      "oozie_database_name": "oozie",
                                      "oozie_database_password": cmx.oozie_password,
-                                     "oozie_database_type": "postgresql",
+                                     "oozie_database_type": "mysql",
                                      "oozie_database_user": "oozie",
                                      "oozie_log_dir": LOG_DIR+"/oozie" })
 
@@ -1514,7 +1522,7 @@ class ManagementActions:
 
         # role_type expected to be in
         # ACTIVITYMONITOR, REPORTSMANAGER, NAVIGATOR, OOZIE, HIVEMETASTORESERVER
-        if role_type in ['ACTIVITYMONITOR', 'REPORTSMANAGER', 'NAVIGATOR','OOZIE','HIVEMETASTORESERVER']:
+        if role_type in ['amon', 'rman', 'nav','oozie','hive']:
             idx = "com.cloudera.cmf.%s.db.password=" % role_type
             match = [s.rstrip('\n') for s in contents if idx in s][0]
             mgmt_password = match[match.index(idx) + len(idx):]
@@ -1907,7 +1915,7 @@ def parse_options():
                       callback=cmx_args, help='Cloudera Manager License file name')
     parser.add_option('-d', '--teardown', dest='teardown', action="store", type="string",
                       help='Teardown Cloudera Manager Cluster. Required arguments "keep_cluster" or "remove_cluster".')
-    parser.add_option('-a', '--highavailable', dest='highAvailability', action="store_true", default=False,
+    parser.add_option('-a', '--highavailable', dest='highAvailability', action="store_true", default=True, #TSENEW
                       help='Create a High Availability cluster')
     parser.add_option('-c', '--cm-user', dest='username', type="string", action='callback',
                       callback=cmx_args, help='Set Cloudera Manager Username')
@@ -1936,7 +1944,7 @@ def parse_options():
 
     # Install CDH5 latest version
     cmx_config_options['parcel'].append(manifest_to_dict(
-        'http://archive.cloudera.com/cdh5/parcels/5.13.0/manifest.json'))
+        'http://archive.cloudera.com/cdh5/parcels/5.13.3/manifest.json'))
 
     msg_req_args = "Please specify the required arguments: "
     if cmx_config_options['cm_server'] is None:
@@ -1964,14 +1972,14 @@ def parse_options():
 
     # Management services password. They are required when adding Management services
     management = ManagementActions
-    if not (bool(management.get_mgmt_password("ACTIVITYMONITOR"))
-            and bool(management.get_mgmt_password("REPORTSMANAGER"))):
+    if not (bool(management.get_mgmt_password("amon"))
+            and bool(management.get_mgmt_password("rman"))):
         exit(1)
     else:
-        cmx_config_options['amon_password'] = management.get_mgmt_password("ACTIVITYMONITOR")
-        cmx_config_options['rman_password'] = management.get_mgmt_password("REPORTSMANAGER")
-        cmx_config_options['oozie_password'] = management.get_mgmt_password("OOZIE")
-        cmx_config_options['hive_password'] = management.get_mgmt_password("HIVEMETASTORESERVER")
+        cmx_config_options['amon_password'] = management.get_mgmt_password("amon")
+        cmx_config_options['rman_password'] = management.get_mgmt_password("rman")
+        cmx_config_options['oozie_password'] = management.get_mgmt_password("oozie")
+        cmx_config_options['hive_password'] = management.get_mgmt_password("hive")
 
     cmx = type('', (), cmx_config_options)
     check = ActiveCommands()
@@ -2030,39 +2038,39 @@ def main():
     init_cluster()
     log("add_hosts_to_cluster")
     add_hosts_to_cluster()
-    # Deploy CDH Parcel
+    #Deploy CDH Parcel
     log("deploy_parcel")
     deploy_parcel(parcel_product=cmx.parcel[0]['product'],
-                  parcel_version=cmx.parcel[0]['version'])
+                parcel_version=cmx.parcel[0]['version'])
 
     log("setup_management")
     # Example CM API to setup Cloudera Manager Management services - not installing 'ACTIVITYMONITOR'
     mgmt_roles = ['SERVICEMONITOR', 'ALERTPUBLISHER', 'EVENTSERVER', 'HOSTMONITOR']
     if management.licensed():
-        mgmt_roles.append('REPORTSMANAGER')
+       mgmt_roles.append('REPORTSMANAGER')
     management(*mgmt_roles).setup()
-    # "START" Management roles
+    ##"START" Management roles
     management(*mgmt_roles).start()
-    # "STOP" Management roles
-    # management_roles(*mgmt_services).stop()
+    ##"STOP" Management roles
+    ##management_roles(*mgmt_services).stop()
 
     # Upload license or Begin Trial
     if options.license_file:
-        management.upload_license()
+       management.upload_license()
     else:
-        management.begin_trial()
+       management.begin_trial()
 
     hosts = management.get_hosts()	
     global nn_host_id,snn_host_id,master_host_id_3,edge_host_id_1,edge_host_id_2,TSE_nodes  #--TSE
     global TSE_nodes_master, TSE_nodes_edge	
-    nn_host_id = [host for host in hosts if host.id == 0][0]	#--TSE
-    snn_host_id = [host for host in hosts if host.id == 1][0] 	#--TSE
-    #master_host_id_3=[host for host in hosts if host.id == 2][0]  #--TSE
-    edge_host_id_1=[host for host in hosts if host.id == 2][0]  #--TSE
-    edge_host_id_2=[host for host in hosts if host.id == 3][0]  #--TSE
-    TSE_nodes_master=[nn_host_id,snn_host_id]      #,master_host_id_3] #--TSE
-    TSE_nodes_edge=[edge_host_id_1,edge_host_id_2] #--TSE
-	
+    nn_host_id = [host for host in hosts if host.id == 0][0].hostId	#--TSE
+    snn_host_id = [host for host in hosts if host.id == 1][0].hostId 	#--TSE
+    master_host_id_3=[host for host in hosts if host.id == 2][0].hostId #--TSE
+    edge_host_id_1=[host for host in hosts if host.id == 3][0].hostId  #--TSE
+    #edge_host_id_2=[host for host in hosts if host.id == 4][0].hostId  #--TSE
+    TSE_nodes_master=[nn_host_id,snn_host_id,master_host_id_3] #--TSE
+    #TSE_nodes_edge=[edge_host_id_1,edge_host_id_2] #--TSE
+    TSE_nodes_edge=[edge_host_id_1]
     #hosts = management.get_hosts()
     # Step-Through - Setup services in order of service dependencies
     # Zookeeper, hdfs, HBase, Solr, Spark, Yarn,
@@ -2071,16 +2079,16 @@ def main():
     setup_zookeeper(options.highAvailability)
     setup_hdfs(options.highAvailability)
     setup_yarn(options.highAvailability)
-    setup_spark_on_yarn()
     setup_hive()
     setup_impala(options.highAvailability)
+    setup_hbase()
     setup_oozie() #--TSE  keep commented
     setup_hue()
-    setup_sqoop()
+    #setup_sqoop()
     #setup_sqoop_client()
     #setup_kafka()   #--TSE
     #setup_kafka_client()   #--TSE
-
+    #setup_spark_on_yarn()
     #setup_mapreduce(options.highAvailability)
 
     # Note: setup_easy() is alternative to Step-Through above
@@ -2094,8 +2102,8 @@ def main():
     # setup_yarn_ha()
         
     #if options.highAvailability:
-    #    setup_hdfs_ha()
-    #    setup_yarn_ha()
+    #setup_hdfs_ha()
+    #setup_yarn_ha()
 
     # Deploy GPL Extra Parcel
     # deploy_parcel(parcel_product=cmx.parcel[1]['product'],parcel_version=cmx.parcel[1]['version'])
@@ -2117,7 +2125,7 @@ def main():
 
     # Example setup Kerberos, Sentry
     #setup_kerberos()
-    setup_sentry()
+    #setup_sentry()
 
     print "Enjoy!"
 

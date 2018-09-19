@@ -68,11 +68,11 @@ log "Done disabling selinux"
 set +e
 
 log "Set cloudera-manager.repo to CM v5"
-yum clean all >> "${LOG_FILE}" 2>&1
+#yum clean all >> "${LOG_FILE}" 2>&1
 rpm --import http://archive.cloudera.com/cdh5/redhat/7/x86_64/cdh/RPM-GPG-KEY-cloudera >> "${LOG_FILE}" 2>&1
 wget http://archive.cloudera.com/cm5/redhat/7/x86_64/cm/cloudera-manager.repo -O /etc/yum.repos.d/cloudera-manager.repo >> "${LOG_FILE}" 2>&1
 
-sed -i 's#/5/#/5.13.0/#g' /etc/yum.repos.d/cloudera-manager.repo
+sed -i 's#/5/#/5.13.3/#g' /etc/yum.repos.d/cloudera-manager.repo
 
 n=0
 until [ $n -ge 5 ]
@@ -83,9 +83,9 @@ do
 done
 if [ $n -ge 5 ]
 then
-    log "yum install error, exiting..."
-    log "------- initialize-cloudera-server.sh failed -------"
-    exit 1
+   log "yum install error, exiting..."
+   log "------- initialize-cloudera-server.sh failed -------"
+   exit 1
 fi
 
 ####################Replacing the string mysql##########
@@ -96,12 +96,16 @@ fi
 
 #/usr/share/cmf/schema/scm_prepare_database.sh mysql -u mysqladmin@mysql-ea -h mysql-ea.mysql.database.azure.com -P 3306 -pPassword@123456 --scm-host 172.16.28.28 --config-path /etc/cloudera-scm-server -f scm scm password123456 >> "${LOG_FILE}" 2>&1
 
-/usr/share/cmf/schema/scm_prepare_database.sh mysql -uroot -h 172.16.28.30 -P 3306 -proot --scm-host 172.16.28.28 -v scm scm password123456  >> "${LOG_FILE}" 2>&1
+#/usr/share/cmf/schema/scm_prepare_database.sh mysql -uroot -h 172.16.28.30 -P 3306 -proot --scm-host 172.16.28.28 -v scm scm password123456  >> "${LOG_FILE}" 2>&1
 
 configure_remote_connections
 #log "installing external DB"
 #sudo yum install postgresql-server -y
 #bash install-postgresql.sh >> "${LOG_FILE}" 2>&1
+
+bash install-mysql.sh >> "${LOG_FILE}" 2>&1
+
+/usr/share/cmf/schema/scm_prepare_database.sh mysql -utemp -pPassword@123 scm scm Password@123 >> "${LOG_FILE}" 2>&1
 
 #log "finished installing external DB"
 #######################################################################################################################
@@ -118,12 +122,12 @@ service cloudera-scm-server start >> "${LOG_FILE}" 2>&1
 
 
 # Set up MySQL
-mysql -u${MYSQLUSER} -p"${MYSQL_PASSWORD}" -h ${MYSQLHOST} --execute="CREATE DATABASE metastore; USE metastore; SOURCE ./hive-0.12.0-cdh5.0.0/scripts/metastore/upgrade/mysql/hive-schema-0.12.0.mysql.sql;"
-mysql -u${MYSQLUSER} -p"${MYSQL_PASSWORD}" -h ${MYSQLHOST} --execute="CREATE USER 'hive'@'${MYSQLHOST}' IDENTIFIED BY '${MYSQL_PASSWORD}';"
-mysql -u${MYSQLUSER} -p"${MYSQL_PASSWORD}" -h ${MYSQLHOST} --execute="REVOKE ALL PRIVILEGES, GRANT OPTION FROM 'hive'@'${MYSQLHOST}';"
-mysql -u${MYSQLUSER} -p"${MYSQL_PASSWORD}" -h ${MYSQLHOST} --execute="GRANT SELECT,INSERT,UPDATE,DELETE,LOCK TABLES,EXECUTE ON metastore.* TO 'hive'@'${MYSQLHOST}';"
-mysql -u${MYSQLUSER} -p"${MYSQL_PASSWORD}" -h ${MYSQLHOST} --execute="FLUSH PRIVILEGES;"
-mysql -u${MYSQLUSER} -p"${MYSQL_PASSWORD}" -h ${MYSQLHOST} --execute="create database oozie; grant all privileges on oozie.* to 'oozie'@'${MYSQLHOST}' identified by '${MYSQL_PASSWORD}'; grant all privileges on oozie.* to 'oozie'@'%' identified by '${MYSQL_PASSWORD}';"
+#mysql -u${MYSQLUSER} -p"${MYSQL_PASSWORD}" -h ${MYSQLHOST} --execute="CREATE DATABASE metastore; USE metastore; SOURCE ./hive-0.12.0-cdh5.0.0/scripts/metastore/upgrade/mysql/hive-schema-0.12.0.mysql.sql;"
+#mysql -u${MYSQLUSER} -p"${MYSQL_PASSWORD}" -h ${MYSQLHOST} --execute="CREATE USER 'hive'@'${MYSQLHOST}' IDENTIFIED BY '${MYSQL_PASSWORD}';"
+#mysql -u${MYSQLUSER} -p"${MYSQL_PASSWORD}" -h ${MYSQLHOST} --execute="REVOKE ALL PRIVILEGES, GRANT OPTION FROM 'hive'@'${MYSQLHOST}';"
+#mysql -u${MYSQLUSER} -p"${MYSQL_PASSWORD}" -h ${MYSQLHOST} --execute="GRANT SELECT,INSERT,UPDATE,DELETE,LOCK TABLES,EXECUTE ON metastore.* TO 'hive'@'${MYSQLHOST}';"
+#mysql -u${MYSQLUSER} -p"${MYSQL_PASSWORD}" -h ${MYSQLHOST} --execute="FLUSH PRIVILEGES;"
+#mysql -u${MYSQLUSER} -p"${MYSQL_PASSWORD}" -h ${MYSQLHOST} --execute="create database oozie; grant all privileges on oozie.* to 'oozie'@'${MYSQLHOST}' identified by '${MYSQL_PASSWORD}'; grant all privileges on oozie.* to 'oozie'@'%' identified by '${MYSQL_PASSWORD}';"
 
 
 
