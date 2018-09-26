@@ -431,7 +431,7 @@ create_db_and_user sentry sentry
 create_db_and_user navms navms
 create_db_and_user oozie oozie
 create_db_and_user hue hue
-create_db_and_user hive metastore
+create_db_and_user hive hive
 #create_hive_metastore
 
 create_db

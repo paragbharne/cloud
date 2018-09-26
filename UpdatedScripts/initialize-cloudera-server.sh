@@ -88,22 +88,12 @@ then
    exit 1
 fi
 
-####################Replacing the string mysql##########
-#sed -i 's/type=mysql/type=postgresql/g' /etc/cloudera-scm-server/db.properties
-#/usr/share/cmf/schema/scm_prepare_database.sh mysql -h "${MYSQLHOST}" -u "${MYSQLUSER}" -p "${MYSQLPASSWORD}" >> "${LOG_FILE}" 2>&1 
-#/usr/share/cmf/schema/scm_prepare_database.sh mysql -h mysql-ea.mysql.database.azure.com -P 3306 -u mysql-ea -p Password@123456 --scm-host 172.16.28.28 scm scm Password@123456 >> "${LOG_FILE}" 2>&1 
-#/usr/share/cmf/schema/scm_prepare_database.sh mysql -h mysql-ea.mysql.database.azure.com -P 3306 -u mysql-ea -p Password@123456 --scm-host 172.16.28.28 --config-path /etc/cloudera-scm-server --schema-path /usr/share/cmf/schema scm scm Password123456 >> "${LOG_FILE}" 2>&1 
 
-#/usr/share/cmf/schema/scm_prepare_database.sh mysql -u mysqladmin@mysql-ea -h mysql-ea.mysql.database.azure.com -P 3306 -pPassword@123456 --scm-host 172.16.28.28 --config-path /etc/cloudera-scm-server -f scm scm password123456 >> "${LOG_FILE}" 2>&1
-
-#/usr/share/cmf/schema/scm_prepare_database.sh mysql -uroot -h 172.16.28.30 -P 3306 -proot --scm-host 172.16.28.28 -v scm scm password123456  >> "${LOG_FILE}" 2>&1
-
-configure_remote_connections
-#log "installing external DB"
-#sudo yum install postgresql-server -y
-#bash install-postgresql.sh >> "${LOG_FILE}" 2>&1
+log "starting mysql installation"
 
 bash install-mysql.sh >> "${LOG_FILE}" 2>&1
+
+log "Preparing scm database"
 
 /usr/share/cmf/schema/scm_prepare_database.sh mysql -utemp -pPassword@123 scm scm Password@123 >> "${LOG_FILE}" 2>&1
 
@@ -113,23 +103,6 @@ bash install-mysql.sh >> "${LOG_FILE}" 2>&1
 #log "start cloudera-scm-server services"
 
 service cloudera-scm-server start >> "${LOG_FILE}" 2>&1
-#Added this block on 20th Aug
-#export PGPASSWORD=$(head -1 /var/lib/cloudera-scm-server-db/data/generated_password.txt)
-#SQLCMD=( """CREATE ROLE hive LOGIN PASSWORD 'hive';""" """CREATE DATABASE hive OWNER hive ENCODING 'UTF8';""" """ALTER DATABASE hive SET standard_conforming_strings = off;""" )
-#for SQL in "${SQLCMD[@]}"; do
-#	psql -A -t -d scm -U cloudera-scm -h localhost -p 5432 -c "${SQL}" >> "${LOG_FILE}"
-#done
-
-
-# Set up MySQL
-#mysql -u${MYSQLUSER} -p"${MYSQL_PASSWORD}" -h ${MYSQLHOST} --execute="CREATE DATABASE metastore; USE metastore; SOURCE ./hive-0.12.0-cdh5.0.0/scripts/metastore/upgrade/mysql/hive-schema-0.12.0.mysql.sql;"
-#mysql -u${MYSQLUSER} -p"${MYSQL_PASSWORD}" -h ${MYSQLHOST} --execute="CREATE USER 'hive'@'${MYSQLHOST}' IDENTIFIED BY '${MYSQL_PASSWORD}';"
-#mysql -u${MYSQLUSER} -p"${MYSQL_PASSWORD}" -h ${MYSQLHOST} --execute="REVOKE ALL PRIVILEGES, GRANT OPTION FROM 'hive'@'${MYSQLHOST}';"
-#mysql -u${MYSQLUSER} -p"${MYSQL_PASSWORD}" -h ${MYSQLHOST} --execute="GRANT SELECT,INSERT,UPDATE,DELETE,LOCK TABLES,EXECUTE ON metastore.* TO 'hive'@'${MYSQLHOST}';"
-#mysql -u${MYSQLUSER} -p"${MYSQL_PASSWORD}" -h ${MYSQLHOST} --execute="FLUSH PRIVILEGES;"
-#mysql -u${MYSQLUSER} -p"${MYSQL_PASSWORD}" -h ${MYSQLHOST} --execute="create database oozie; grant all privileges on oozie.* to 'oozie'@'${MYSQLHOST}' identified by '${MYSQL_PASSWORD}'; grant all privileges on oozie.* to 'oozie'@'%' identified by '${MYSQL_PASSWORD}';"
-
-
 
 while ! (/usr/bin/bash -c exec 6<>/dev/tcp/"$(hostname)"/7180) ; do log 'Waiting for cloudera-scm-server to start...'; sleep 15; done
 log "END: master node deployments"

@@ -569,8 +569,11 @@ def setup_spark_on_yarn():
 		#edge_hostid2=[host for host in hosts if host.id == 4][0]  #--TSE
 		
 		#TSE_nodes_edge=[edge_hostid1,edge_hostid2] #--TSE
-        for edgenode in TSE_nodes_edge:
-            cdh.create_service_role(service, "GATEWAY", edgenode)
+        #for edgenode in TSE_nodes_edge:
+           # cdh.create_service_role(service, "GATEWAY", edgenode)
+        for host in management.get_hosts(include_cm_host = False):
+            if host.hostId not in TSE_nodes_master:
+               cdh.create_service_role(service, "GATEWAY", host)
 			
 
         # Example of deploy_client_config. Recommended to Deploy Cluster wide client config.
@@ -758,8 +761,8 @@ def setup_hive():
         # hive_metastore_database_host: Assuming embedded DB is running from where embedded-db is located.
         service_config = {"hive_metastore_database_host": socket.getfqdn(cmx.cm_server),
                           "hive_metastore_database_user": "hive",
-                          "hive_metastore_database_name": "metastore",
-                          "hive_metastore_database_password": "Mysql@123",  #cmx.hive_password,
+                          "hive_metastore_database_name": "hive",
+                          "hive_metastore_database_password": "Mysql@1234",  #cmx.hive_password,
                           "hive_metastore_database_port": "3306",
                           "hive_metastore_database_type": "mysql"}
         service_config.update(cdh.dependencies_for(service))
@@ -841,18 +844,17 @@ def setup_sqoop_client():
         print "Create %s service" % service_name
         cluster.create_service(service_name, service_type)
         service = cluster.get_service(service_name)
-        # hosts = get_cluster_hosts()
-
+        hosts = management.get_hosts()
         # Service-Wide
         service.update_config({})
 
         '''for host in management.get_hosts(include_cm_host=True):
             cdh.create_service_role(service, "GATEWAY", host)'''  #TSE
-		#edge_hostid1=[host for host in hosts if host.id == 3][0]  #--TSE
+	edge_hostid1=[host for host in hosts if host.id == 3][0]  #--TSE
 		#edge_hostid2=[host for host in hosts if host.id == 4][0]  #--TSE
 		
-		#TSE_nodes_edges=[edge_hostid1,edge_hostid2] #--TSE
-        for host in TSE_nodes_edge:
+	TSE_nodes_edges=[edge_hostid1] #--TSE
+        for host in TSE_nodes_edges:
             cdh.create_service_role(service, "GATEWAY", host)
 		
 
@@ -1007,10 +1009,10 @@ def setup_oozie():
         cluster.create_service(service_name, service_type)
         service = cluster.get_service(service_name)
         hosts = management.get_hosts()
-
         # Service-Wide
         service.update_config(cdh.dependencies_for(service))
-
+        
+        
         # Role Config Group equivalent to Service Default Group
         # install to CM server, mingrui
         cmhost= management.get_cmhost()
@@ -1023,9 +1025,9 @@ def setup_oozie():
 				
 
         check.status_for_command("Creating Oozie database", service.create_oozie_db())
-        check.status_for_command("Installing Oozie ShareLib in HDFS", service.install_oozie_sharelib())
+        #check.status_for_command("Installing Oozie ShareLib in HDFS", service.install_oozie_sharelib())
         # This service is started later on
-        # check.status_for_command("Starting Oozie Service", service.start())
+        check.status_for_command("Starting Oozie Service", service.start())
 
 
 def setup_hue():
@@ -1221,7 +1223,7 @@ def setup_sentry():
         service_config = {"sentry_server_database_host": socket.getfqdn(cmx.cm_server),
                           "sentry_server_database_user": "sentry",
                           "sentry_server_database_name": "sentry",
-                          "sentry_server_database_password": "cloudera",
+                          "sentry_server_database_password": "Mysql@1234",
                           "sentry_server_database_port": "3306",
                           "sentry_server_database_type": "mysql"}
 
@@ -1232,7 +1234,7 @@ def setup_sentry():
         #Mingrui install sentry to cm host
         cmhost= management.get_cmhost()
         #cdh.create_service_role(service, "SENTRY_SERVER", cmhost) #TSE
-        cdh.create_service_role(service, "SENTRY_SERVER", [x for x in hosts if x.id == 1][0])  #TSE--2
+        cdh.create_service_role(service, "SENTRY_SERVER", [x for x in hosts if x.id == 2][0])  #TSE--2
 		
         check.status_for_command("Creating Sentry Database Tables", service.create_sentry_database_tables())
 
@@ -1245,7 +1247,7 @@ def setup_sentry():
         role_group.update_config({"hiveserver2_enable_impersonation": False})
 
         # This service is started later on
-        # check.status_for_command("Starting Sentry Server", service.start())
+        check.status_for_command("Starting Sentry Server", service.start())
 
 
 def setup_easy():
@@ -1447,9 +1449,10 @@ class ManagementActions:
                                      "headlamp_scratch_dir": LOG_DIR+"/lib/cloudera-scm-headlamp",
                                      "mgmt_log_dir": LOG_DIR+"/cloudera-scm-headlamp"})
             elif group.roleType == "OOZIE":
+                print "oozie group"
                 group.update_config({"oozie_database_host": "%s:3306" % socket.getfqdn(cmx.cm_server),
                                      "oozie_database_name": "oozie",
-                                     "oozie_database_password": cmx.oozie_password,
+                                     "oozie_database_password": "Mysql@1234",    #cmx.oozie_password,
                                      "oozie_database_type": "mysql",
                                      "oozie_database_user": "oozie",
                                      "oozie_log_dir": LOG_DIR+"/oozie" })
@@ -2047,7 +2050,7 @@ def main():
     # Example CM API to setup Cloudera Manager Management services - not installing 'ACTIVITYMONITOR'
     mgmt_roles = ['SERVICEMONITOR', 'ALERTPUBLISHER', 'EVENTSERVER', 'HOSTMONITOR']
     if management.licensed():
-       mgmt_roles.append('REPORTSMANAGER')
+      mgmt_roles.append('REPORTSMANAGER')
     management(*mgmt_roles).setup()
     ##"START" Management roles
     management(*mgmt_roles).start()
@@ -2064,9 +2067,13 @@ def main():
     global nn_host_id,snn_host_id,master_host_id_3,edge_host_id_1,edge_host_id_2,TSE_nodes  #--TSE
     global TSE_nodes_master, TSE_nodes_edge	
     nn_host_id = [host for host in hosts if host.id == 0][0].hostId	#--TSE
+    print "nn_host",[host for host in hosts if host.id == 0][0].hostname
     snn_host_id = [host for host in hosts if host.id == 1][0].hostId 	#--TSE
+    print "snn_host",[host for host in hosts if host.id == 1][0].hostname
     master_host_id_3=[host for host in hosts if host.id == 2][0].hostId #--TSE
+    print "master_host3",[host for host in hosts if host.id == 2][0].hostname
     edge_host_id_1=[host for host in hosts if host.id == 3][0].hostId  #--TSE
+    print "edge_host1",[host for host in hosts if host.id == 3][0].hostname
     #edge_host_id_2=[host for host in hosts if host.id == 4][0].hostId  #--TSE
     TSE_nodes_master=[nn_host_id,snn_host_id,master_host_id_3] #--TSE
     #TSE_nodes_edge=[edge_host_id_1,edge_host_id_2] #--TSE
@@ -2083,12 +2090,13 @@ def main():
     setup_impala(options.highAvailability)
     setup_hbase()
     setup_oozie() #--TSE  keep commented
+    setup_spark_on_yarn()
     setup_hue()
+    setup_sentry()
     #setup_sqoop()
-    #setup_sqoop_client()
+    setup_sqoop_client()
     #setup_kafka()   #--TSE
     #setup_kafka_client()   #--TSE
-    #setup_spark_on_yarn()
     #setup_mapreduce(options.highAvailability)
 
     # Note: setup_easy() is alternative to Step-Through above

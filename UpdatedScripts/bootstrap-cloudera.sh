@@ -133,14 +133,14 @@ mip=${MASTERIP}
 log "set private key"
 #use the key from the key vault as the SSH private key
 #openssl rsa -in /var/lib/waagent/*.prv -out /home/"${ADMINUSER}"/.ssh/id_rsa
-#prvfile=$(ls -ltr /var/lib/waagent/*.prv|tail -n 1|awk -F" " '{print $9}')
-#openssl rsa -in $prvfile -out /home/"${ADMINUSER}"/.ssh/id_rsa
-#chmod 600 /home/"$ADMINUSER"/.ssh/id_rsa
-#chown "$ADMINUSER" /home/"$ADMINUSER"/.ssh/id_rsa
+prvfile=$(ls -ltr /var/lib/waagent/*.prv|tail -n 1|awk -F" " '{print $9}')
+openssl rsa -in $prvfile -out /home/"${ADMINUSER}"/.ssh/id_rsa
+chmod 600 /home/"$ADMINUSER"/.ssh/id_rsa
+chown "$ADMINUSER" /home/"$ADMINUSER"/.ssh/id_rsa
 
-#file="/home/$ADMINUSER/.ssh/id_rsa"
-#key="/tmp/id_rsa.pem"
-#openssl rsa -in "$file" -outform PEM > $key
+file="/home/$ADMINUSER/.ssh/id_rsa"
+key="/tmp/id_rsa.pem"
+openssl rsa -in "$file" -outform PEM > $key
 
 worker_ip=$MASTERIP,$WORKERIP
 log "Worker ip to be supplied to next script: $worker_ip"
