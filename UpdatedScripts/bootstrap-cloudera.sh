@@ -132,7 +132,7 @@ mip=${MASTERIP}
 
 log "set private key"
 #use the key from the key vault as the SSH private key
-#openssl rsa -in /var/lib/waagent/*.prv -out /home/"${ADMINUSER}"/.ssh/id_rsa
+openssl rsa -in /var/lib/waagent/*.prv -out /home/"${ADMINUSER}"/.ssh/id_rsa
 prvfile=$(ls -ltr /var/lib/waagent/*.prv|tail -n 1|awk -F" " '{print $9}')
 openssl rsa -in $prvfile -out /home/"${ADMINUSER}"/.ssh/id_rsa
 chmod 600 /home/"$ADMINUSER"/.ssh/id_rsa
