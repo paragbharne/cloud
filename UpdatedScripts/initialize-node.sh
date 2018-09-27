@@ -36,9 +36,9 @@ log "Done Generate IP Addresses for the Cloudera setup. Host file looks like:"
 cat /etc/hosts >> ${LOG_FILE} 2>&1
 
 # Disable the need for a tty when running sudo and allow passwordless sudo for the admin user
-#sed -i '/Defaults[[:space:]]\+!*requiretty/s/^/#/' /etc/sudoers
+sed -i '/Defaults[[:space:]]\+!*requiretty/s/^/#/' /etc/sudoers
 #Backup and give special permission to admin user
-#cp -rf /etc/sudoers /home/opt/sudoers
+cp -rf /etc/sudoers /home/opt/sudoers
 setfacl -m u:$ADMINUSER:rwx /etc/sudoers
 
 echo "$ADMINUSER ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
