@@ -83,9 +83,9 @@ cat /etc/selinux/config > /tmp/afterSeLinux.out
 log "Disable iptables"
 /etc/init.d/iptables save
 #/etc/init.d/iptables stop
-systemctl stop firewalld
+#systemctl stop firewalld
 #chkconfig iptables off
-systemctl disable firewalld
+#systemctl disable firewalld
 
 # Install and start NTP
 log "Install and start NTP"
