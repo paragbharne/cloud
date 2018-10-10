@@ -90,9 +90,9 @@ log "Disable iptables"
 # Install and start NTP
 log "Install and start NTP"
 yum install -y ntp
-service ntpd start
-service ntpd status
-chkconfig ntpd on
+#service ntpd start
+#service ntpd status
+#chkconfig ntpd on
 
 # Disable THP
 log "Disable THP"
